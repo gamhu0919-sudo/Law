@@ -7,11 +7,12 @@ import asyncio
 import sys
 import os
 import logging
+import io
 from fastmcp import FastMCP
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from .tools import (
     search_law, 
@@ -20,7 +21,7 @@ from .tools import (
     get_precedent_detail,
     search_administrative_rule
 )
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 from contextlib import contextmanager
 
@@ -394,6 +395,142 @@ async def call_tool_http(tool_name: str, request_data: dict):
     except Exception as e:
         mcp_logger.exception("Error in call_tool_http: %s", str(e))
         return {"error": f"Error calling tool: {str(e)}"}
+
+
+# ─────────────────────────────────────────────
+# AI 채팅 / 문서분석 엔드포인트
+# ─────────────────────────────────────────────
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., description="사용자 질문")
+    session_id: str = Field("default", description="대화 세션 ID")
+    mode: str = Field("chat", description="모드: chat | analyze")
+
+class DocumentAnalyzeRequest(BaseModel):
+    text: str = Field(..., description="분석할 문서 텍스트")
+    doc_type: str = Field("auto", description="문서 유형: contract | plan | terms | auto")
+    user_request: str = Field("", description="추가 요청사항")
+    session_id: str = Field("default", description="세션 ID")
+
+class SummarizeRequest(BaseModel):
+    precedent_id: str = Field(..., description="판례 일련번호")
+
+class CompareRequest(BaseModel):
+    precedent_ids: List[str] = Field(..., description="비교할 판례 일련번호 목록 (2~4개)")
+
+
+@api.post("/ai/chat")
+async def ai_chat(req: ChatRequest):
+    """AI 법률 비서와 대화 - 자연어 질문으로 법령·판례 자동 조회"""
+    try:
+        from .ai_chat import chat_with_ai
+        result = await chat_with_ai(
+            message=req.message,
+            session_id=req.session_id,
+            mode=req.mode,
+        )
+        return result
+    except Exception as e:
+        mcp_logger.exception("AI chat error: %s", str(e))
+        return {"error": str(e), "answer": f"AI 서비스 오류: {str(e)}"}
+
+
+@api.post("/ai/analyze")
+async def ai_analyze_text(req: DocumentAnalyzeRequest):
+    """텍스트 문서(계약서, 기획서 등) 법적 분석"""
+    try:
+        from .ai_chat import analyze_document
+        result = await analyze_document(
+            document_text=req.text,
+            doc_type=req.doc_type,
+            user_request=req.user_request,
+        )
+        return result
+    except Exception as e:
+        mcp_logger.exception("AI analyze error: %s", str(e))
+        return {"error": str(e)}
+
+
+@api.post("/ai/analyze/upload")
+async def ai_analyze_file(
+    file: UploadFile = File(...),
+    doc_type: str = Form("auto"),
+    user_request: str = Form(""),
+):
+    """PDF/텍스트 파일 업로드 후 법적 분석"""
+    try:
+        from .ai_chat import analyze_document
+        import pdfplumber
+
+        content = await file.read()
+        filename = file.filename or ""
+        text = ""
+
+        if filename.lower().endswith(".pdf"):
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                pages_text = []
+                for page in pdf.pages[:30]:  # 최대 30페이지
+                    pt = page.extract_text()
+                    if pt:
+                        pages_text.append(pt)
+                text = "\n".join(pages_text)
+        else:
+            # txt, md, 기타 텍스트 파일
+            for enc in ["utf-8", "cp949", "euc-kr"]:
+                try:
+                    text = content.decode(enc)
+                    break
+                except Exception:
+                    continue
+
+        if not text.strip():
+            return {"error": "파일에서 텍스트를 추출할 수 없습니다."}
+
+        result = await analyze_document(
+            document_text=text,
+            doc_type=doc_type,
+            user_request=user_request or f"파일명: {filename}",
+        )
+        result["filename"] = filename
+        result["extracted_chars"] = len(text)
+        return result
+    except Exception as e:
+        mcp_logger.exception("File analyze error: %s", str(e))
+        return {"error": str(e)}
+
+
+@api.post("/ai/summarize")
+async def ai_summarize_precedent(req: SummarizeRequest):
+    """판례 AI 요약 - 어려운 판례를 쉽게 설명"""
+    try:
+        from .ai_chat import summarize_precedent
+        return await summarize_precedent(req.precedent_id)
+    except Exception as e:
+        mcp_logger.exception("AI summarize error: %s", str(e))
+        return {"error": str(e)}
+
+
+@api.post("/ai/compare")
+async def ai_compare_precedents(req: CompareRequest):
+    """판례 비교 분석 - 여러 판례를 AI로 비교"""
+    try:
+        from .ai_chat import compare_precedents
+        return await compare_precedents(req.precedent_ids)
+    except Exception as e:
+        mcp_logger.exception("AI compare error: %s", str(e))
+        return {"error": str(e)}
+
+
+@api.delete("/ai/session/{session_id}")
+async def clear_session(session_id: str):
+    """대화 세션 초기화"""
+    try:
+        from .ai_chat import session_store
+        if session_id in session_store:
+            del session_store[session_id]
+        return {"status": "ok", "message": "세션이 초기화되었습니다."}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # MCP 도구 정의

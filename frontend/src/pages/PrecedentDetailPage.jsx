@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPrecedentDetail } from '../api/lawApi'
 
 // YYYYMMDD 또는 YYYY.MM.DD → YYYY.MM.DD
@@ -154,6 +154,28 @@ export default function PrecedentDetailPage() {
             <p className="text-sm text-purple-800 leading-relaxed">{data.참조판례}</p>
           </div>
         )}
+
+        {/* AI 분석 버튼 */}
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to={`/compare?summarize=${precedentId}`}
+            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold transition shadow-sm"
+          >
+            🤖 AI 판례 요약 보기
+          </Link>
+          <Link
+            to="/compare"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition shadow-sm border border-gray-200"
+          >
+            📊 유사 판례 비교 분석
+          </Link>
+          <Link
+            to="/chat"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-semibold transition shadow-sm border border-gray-200"
+          >
+            💬 AI에게 이 판례 질문하기
+          </Link>
+        </div>
 
         <Section title="판시사항" content={data?.판시사항} />
         <Section title="판결요지" content={data?.판결요지} />

@@ -55,3 +55,43 @@ export const searchAdminRule = (query, page = 1, pageSize = 10) =>
 // 헬스체크
 export const checkHealth = () =>
   axios.get('/health').then(r => r.data)
+
+// ── AI 비서 API ──────────────────────────────────────
+
+// AI 채팅 (자연어 법률 질문)
+export const aiChat = (message, sessionId = 'default', mode = 'chat') =>
+  axios.post('/ai/chat', { message, session_id: sessionId, mode })
+    .then(r => r.data)
+
+// 텍스트 문서 분석
+export const analyzeDocument = (text, docType = 'auto', userRequest = '', sessionId = 'default') =>
+  axios.post('/ai/analyze', {
+    text,
+    doc_type: docType,
+    user_request: userRequest,
+    session_id: sessionId,
+  }).then(r => r.data)
+
+// PDF/파일 업로드 분석
+export const analyzeFile = (file, docType = 'auto', userRequest = '') => {
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('doc_type', docType)
+  fd.append('user_request', userRequest)
+  return axios.post('/ai/analyze/upload', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  }).then(r => r.data)
+}
+
+// 판례 AI 요약
+export const summarizePrecedent = (precedentId) =>
+  axios.post('/ai/summarize', { precedent_id: precedentId }).then(r => r.data)
+
+// 판례 비교 분석
+export const comparePrecedents = (precedentIds) =>
+  axios.post('/ai/compare', { precedent_ids: precedentIds }).then(r => r.data)
+
+// 세션 초기화
+export const clearSession = (sessionId) =>
+  axios.delete(`/ai/session/${sessionId}`).then(r => r.data)
