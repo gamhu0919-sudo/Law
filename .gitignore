@@ -55,3 +55,10 @@ htmlcov/
 # uv
 uv.lock
 
+
+# Frontend build output
+frontend/dist/
+frontend/node_modules/
+
+# Environment
+.env

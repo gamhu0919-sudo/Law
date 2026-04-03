@@ -9,6 +9,9 @@ import os
 import logging
 from fastmcp import FastMCP
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .tools import (
     search_law, 
@@ -25,7 +28,16 @@ from contextlib import contextmanager
 load_dotenv()
 
 # FastAPI / FastMCP 앱 구성
-api = FastAPI()
+api = FastAPI(title="한국 법령·판례 검색 API", version="1.0.0")
+
+# CORS 미들웨어 추가
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 mcp_logger = logging.getLogger("law-mcp")
 level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 mcp_logger.setLevel(level)
@@ -504,6 +516,24 @@ async def main():
         import traceback
         traceback.print_exc(file=sys.stderr)
         raise
+
+
+# 프론트엔드 정적 파일 서빙 (빌드 후)
+_frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+if os.path.isdir(_frontend_dist):
+    api.mount("/assets", StaticFiles(directory=os.path.join(_frontend_dist, "assets")), name="assets")
+
+    @api.get("/", include_in_schema=False)
+    async def serve_index():
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
+
+    @api.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        # API 경로는 제외
+        if full_path.startswith("tools") or full_path.startswith("health") or full_path.startswith("docs") or full_path.startswith("openapi"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404)
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
 
 
 if __name__ == "__main__":
