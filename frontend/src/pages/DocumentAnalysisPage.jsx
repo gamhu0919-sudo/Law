@@ -36,8 +36,10 @@ function AnalysisResult({ result, navigate }) {
   const toolsUsed = result.tools_used || []
   const laws = references.filter(r => r.type === 'law' || r.type === 'law_detail')
   const precs = references.filter(r => r.type === 'precedent' || r.type === 'precedent_detail')
+  const adminRules = references.filter(r => r.type === 'admin_rule')
   const uniqueLaws = laws.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i)
   const uniquePrecs = precs.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
+  const uniqueRules = adminRules.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i)
 
   return (
     <div className="space-y-4 fade-in">
@@ -72,7 +74,7 @@ function AnalysisResult({ result, navigate }) {
       </div>
 
       {/* 참조 법령·판례 */}
-      {(uniqueLaws.length > 0 || uniquePrecs.length > 0) && (
+      {(uniqueLaws.length > 0 || uniquePrecs.length > 0 || uniqueRules.length > 0) && (
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <h3 className="text-sm font-bold text-gray-700 mb-3">📚 분석에 사용된 법령·판례</h3>
           {uniqueLaws.length > 0 && (
@@ -87,6 +89,22 @@ function AnalysisResult({ result, navigate }) {
                   >
                     📋 {law.name}
                   </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {uniqueRules.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2">참고 행정규칙</p>
+              <div className="flex flex-wrap gap-2">
+                {uniqueRules.map((rule, i) => (
+                  <span
+                    key={i}
+                    className="px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-xs border border-orange-100 font-medium"
+                    title={rule.category}
+                  >
+                    📑 {rule.name}
+                  </span>
                 ))}
               </div>
             </div>

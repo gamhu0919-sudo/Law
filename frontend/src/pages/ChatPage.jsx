@@ -38,9 +38,11 @@ function ReferenceBadges({ references }) {
 
   const laws = references.filter(r => r.type === 'law' || r.type === 'law_detail')
   const precs = references.filter(r => r.type === 'precedent' || r.type === 'precedent_detail')
+  const adminRules = references.filter(r => r.type === 'admin_rule')
 
   const uniqueLaws = laws.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i)
   const uniquePrecs = precs.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
+  const uniqueRules = adminRules.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i)
 
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">
@@ -56,6 +58,22 @@ function ReferenceBadges({ references }) {
               >
                 {law.name}
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {uniqueRules.length > 0 && (
+        <div className="mb-2">
+          <span className="text-xs text-gray-500 font-medium mr-2">📑 참고 행정규칙:</span>
+          <div className="inline-flex flex-wrap gap-1 mt-1">
+            {uniqueRules.map((rule, i) => (
+              <span
+                key={i}
+                className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded text-xs border border-orange-100"
+                title={rule.category}
+              >
+                {rule.name}
+              </span>
             ))}
           </div>
         </div>
@@ -153,6 +171,7 @@ export default function ChatPage() {
 
     try {
       const data = await aiChat(q, sessionId, 'chat')
+      const isRateLimit = data.error_type === 'rate_limit'
       setMessages(prev => prev.map(m =>
         m.thinking ? {
           ...m,
@@ -160,6 +179,9 @@ export default function ChatPage() {
           content: data.answer || '답변을 생성하지 못했습니다.',
           references: data.references || [],
           tools_used: data.tools_used || [],
+          isRateLimit,
+          retryAfter: data.retry_after || 0,
+          modelUsed: data.model_used,
         } : m
       ))
     } catch (e) {
@@ -241,7 +263,7 @@ export default function ChatPage() {
                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                   </div>
-                  <span>법령·판례 검색 중...</span>
+                  <span>법령·판례 검색 및 분석 중... (최대 30초)</span>
                 </div>
               ) : msg.role === 'user' ? (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -249,9 +271,24 @@ export default function ChatPage() {
                 <div>
                   {msg.isError ? (
                     <p className="text-red-600 text-sm">{msg.content}</p>
+                  ) : msg.isRateLimit ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 text-amber-600 text-xs font-medium">
+                        <span>⚠️ API 요청 한도 초과</span>
+                        {msg.retryAfter > 0 && (
+                          <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            {msg.retryAfter}초 후 재시도
+                          </span>
+                        )}
+                      </div>
+                      <MarkdownContent content={msg.content} />
+                    </div>
                   ) : (
                     <>
                       <ToolsBadge tools={msg.tools_used} />
+                      {msg.modelUsed && (
+                        <div className="text-xs text-gray-400 mb-1.5">🤖 {msg.modelUsed}</div>
+                      )}
                       <MarkdownContent content={msg.content} />
                       <ReferenceBadges references={msg.references} />
                     </>
