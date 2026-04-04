@@ -15,7 +15,12 @@ export default function SearchBar({ large = false }) {
   const inputRef = useRef(null)
   const dropRef = useRef(null)
 
-  // 외부 클릭 시 드롭다운 닫기
+  // Sync with external query changes
+  useEffect(() => {
+    setInputVal(query)
+  }, [query])
+
+  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
       if (!dropRef.current?.contains(e.target) && !inputRef.current?.contains(e.target)) {
@@ -49,32 +54,47 @@ export default function SearchBar({ large = false }) {
             onChange={e => setInputVal(e.target.value)}
             onFocus={() => setShowDrop(true)}
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            placeholder={`${tabLabel[activeTab]} 키워드를 입력하세요 (예: 민법, 손해배상)`}
-            className={`w-full border-2 border-gray-200 rounded-xl px-4 focus:outline-none focus:border-blue-500 transition bg-white shadow-sm ${
-              large ? 'py-4 text-base' : 'py-3 text-sm'
-            }`}
+            placeholder={`${tabLabel[activeTab] || '법령'} 키워드를 입력하세요 (예: 민법, 손해배상)`}
+            aria-label="법령 검색"
+            className={[
+              'w-full rounded-xl px-4 border-2 transition shadow-sm',
+              'bg-white text-gray-900 placeholder-gray-400',
+              'border-gray-200 focus:border-blue-500 focus:outline-none',
+              'dark:bg-gray-800 dark:text-white dark:placeholder-gray-400',
+              'dark:border-gray-600 dark:focus:border-blue-400',
+              large ? 'py-4 text-base' : 'py-3 text-sm',
+            ].join(' ')}
           />
           {inputVal && (
             <button
               onClick={() => { setInputVal(''); inputRef.current?.focus() }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl"
-            >×</button>
+              aria-label="검색어 지우기"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none"
+            >
+              ×
+            </button>
           )}
-          {/* 드롭다운 */}
-          {showDrop && (history.length > 0) && (
+
+          {/* Dropdown */}
+          {showDrop && history.length > 0 && (
             <div
               ref={dropRef}
-              className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 overflow-hidden"
+              className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden"
             >
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                <span className="text-xs text-gray-500 font-medium">최근 검색</span>
-                <button onClick={clearHistory} className="text-xs text-red-400 hover:text-red-600">전체 삭제</button>
+              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">최근 검색</span>
+                <button
+                  onClick={clearHistory}
+                  className="text-xs text-red-400 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  전체 삭제
+                </button>
               </div>
               {history.slice(0, 8).map((h, i) => (
                 <button
                   key={i}
                   onClick={() => { setInputVal(h); handleSubmit(h) }}
-                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex items-center gap-2 transition"
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 flex items-center gap-2 transition"
                 >
                   <span className="text-gray-400 text-xs">🕐</span>
                   <span>{h}</span>
@@ -83,24 +103,35 @@ export default function SearchBar({ large = false }) {
             </div>
           )}
         </div>
+
         <button
           onClick={() => handleSubmit()}
-          className={`bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition shadow-sm whitespace-nowrap ${
-            large ? 'px-7 py-4 text-base' : 'px-5 py-3 text-sm'
-          }`}
+          aria-label="검색"
+          className={[
+            'bg-blue-600 hover:bg-blue-700 active:bg-blue-800',
+            'text-white rounded-xl font-semibold transition shadow-sm whitespace-nowrap',
+            'focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2',
+            large ? 'px-7 py-4 text-base' : 'px-5 py-3 text-sm',
+          ].join(' ')}
         >
           🔍 검색
         </button>
       </div>
 
-      {/* 빠른 검색 */}
+      {/* 빠른 검색 태그 */}
       {large && (
         <div className="mt-3 flex flex-wrap gap-2 justify-center">
           {QUICK_SEARCHES.map(kw => (
             <button
               key={kw}
               onClick={() => { setInputVal(kw); handleSubmit(kw) }}
-              className="px-3 py-1.5 bg-white text-gray-700 text-xs rounded-full border border-gray-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition shadow-sm"
+              className={[
+                'px-3 py-1.5 text-xs rounded-full border transition shadow-sm',
+                'bg-white/90 text-gray-700 border-gray-200',
+                'hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50',
+                'dark:bg-gray-700/80 dark:text-gray-200 dark:border-gray-600',
+                'dark:hover:border-blue-400 dark:hover:text-blue-300 dark:hover:bg-gray-600',
+              ].join(' ')}
             >
               {kw}
             </button>
